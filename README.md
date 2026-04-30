@@ -24,7 +24,7 @@ The lesson is simple and worth repeating: **if you don't plot your data, you don
 
 ## What this tool does
 
-Datasaurus takes a target shape — a heart, a spiral, a hexagon, any of 50 built-in outlines — and rearranges a cloud of 142 points until the cloud looks like that shape. The constraint: five summary statistics (mean x, mean y, standard deviation x, standard deviation y, and Pearson correlation) must stay within ±0.01 of their target values at every single step. Not just at the end. At every step.
+Datasaurus takes a target shape — a heart, a spiral, a hexagon, any of 50 built-in outlines — and rearranges a cloud of points until the cloud looks like that shape. By default there are 142 points (matching the original paper's dataset), but you can adjust this. The constraint: five summary statistics (mean x, mean y, standard deviation x, standard deviation y, and Pearson correlation) must stay within ±0.01 of their target values at every single step. Not just at the end. At every step.
 
 The shapes are just geometry — line segments that form an outline. They don't have statistics. The point cloud has the statistics. The algorithm's job is to move points toward the shape boundary without ever letting the statistics slip. The result is a dataset that looks like a dinosaur but is statistically indistinguishable from a dataset that looks like a circle.
 
@@ -34,7 +34,7 @@ You can run nine shapes simultaneously in a grid. Each cell morphs independently
 
 ## How it works
 
-The algorithm starts with 142 random points that already satisfy the target statistics. No structure yet — just noise with the right mean, spread, and correlation. Then, a million times:
+The algorithm starts with a cloud of random points (142 by default, configurable from 50 to 500) that already satisfy the target statistics. No structure yet — just noise with the right mean, spread, and correlation. Then, a million times:
 
 1. Pick a random point. Nudge it with a small random perturbation.
 2. Check all five statistics. If any one of them drifted outside ±0.01 of the target, reject the move immediately. This is the hard constraint — it is never relaxed.
