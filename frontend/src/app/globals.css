@@ -1,0 +1,105 @@
+@import url("https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=Source+Code+Pro:wght@400;500&display=swap");
+@import "tailwindcss";
+
+/* ── Vintage Paper — tweakcn.com/r/themes/vintage-paper.json ── */
+:root {
+  --background:           oklch(0.9582 0.0152 90.2357);
+  --foreground:           oklch(0.3760 0.0225 64.3434);
+  --card:                 oklch(0.9914 0.0098 87.4695);
+  --card-foreground:      oklch(0.3760 0.0225 64.3434);
+  --popover:              oklch(0.9914 0.0098 87.4695);
+  --popover-foreground:   oklch(0.3760 0.0225 64.3434);
+  --primary:              oklch(0.6180 0.0778 65.5444);
+  --primary-foreground:   oklch(1.0000 0 0);
+  --secondary:            oklch(0.8846 0.0302 85.5655);
+  --secondary-foreground: oklch(0.4313 0.0300 64.9288);
+  --muted:                oklch(0.9239 0.0190 83.0636);
+  --muted-foreground:     oklch(0.5391 0.0387 71.1655);
+  --accent:               oklch(0.8348 0.0426 88.8064);
+  --accent-foreground:    oklch(0.3760 0.0225 64.3434);
+  --destructive:          oklch(0.5471 0.1438 32.9149);
+  --border:               oklch(0.8606 0.0321 84.5881);
+  --input:                oklch(0.8606 0.0321 84.5881);
+  --ring:                 oklch(0.6180 0.0778 65.5444);
+  --dot-color:            oklch(0.6180 0.0778 65.5444);
+  --radius: 0.25rem;
+  --font-sans: "Libre Baskerville", serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+/* ── Perpetuity Teal — tweakcn.com/r/themes/perpetuity.json ── */
+.dark {
+  --background:           oklch(0.2068 0.0247 224.4533);
+  --foreground:           oklch(0.8520 0.1269 195.0354);
+  --card:                 oklch(0.2293 0.0276 216.0674);
+  --card-foreground:      oklch(0.8520 0.1269 195.0354);
+  --popover:              oklch(0.2293 0.0276 216.0674);
+  --popover-foreground:   oklch(0.8520 0.1269 195.0354);
+  --primary:              oklch(0.8520 0.1269 195.0354);
+  --primary-foreground:   oklch(0.2068 0.0247 224.4533);
+  --secondary:            oklch(0.3775 0.0564 216.5010);
+  --secondary-foreground: oklch(0.8520 0.1269 195.0354);
+  --muted:                oklch(0.2894 0.0412 218.8153);
+  --muted-foreground:     oklch(0.6611 0.0975 195.0526);
+  --accent:               oklch(0.3775 0.0564 216.5010);
+  --accent-foreground:    oklch(0.8520 0.1269 195.0354);
+  --destructive:          oklch(0.6168 0.2086 25.8088);
+  --border:               oklch(0.3775 0.0564 216.5010);
+  --input:                oklch(0.3775 0.0564 216.5010);
+  --ring:                 oklch(0.8520 0.1269 195.0354);
+  --dot-color:            oklch(0.8520 0.1269 195.0354);
+  --font-sans: "Source Code Pro", monospace;
+  --font-mono: "Source Code Pro", monospace;
+}
+
+/* ── Map tokens into Tailwind v4 utilities ── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Next.js root wrapper — must be full height for flex column layouts */
+#__next {
+  height: 100%;
+}
