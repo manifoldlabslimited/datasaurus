@@ -24,7 +24,15 @@ Start with 142 random points that already satisfy the target statistics. Then, a
 
 That's it. The temperature falls on an S-curve — loose early, tight late. By the end, the cloud looks like a dinosaur (or a heart, or a hexagon) and the stats haven't moved.
 
-Three algorithms are available: simulated annealing, Langevin dynamics, and momentum. They all preserve the same statistics; they just move points differently.
+## Three algorithms
+
+The stat-checking rule (step 2) is the same everywhere. What changes is how points are proposed in step 1.
+
+**Simulated annealing** picks a random point and adds random noise. There's no sense of direction — the point doesn't know where the shape is. It just wanders, and the acceptance rule in step 3 gradually filters out moves that go the wrong way. This is the method from the original paper.
+
+**Langevin dynamics** gives each point a sense of direction. Before adding noise, it computes which way the nearest part of the target shape is and nudges the point toward it. The noise is still there — scaled to the current temperature — so it explores early and converges late. The result is that points flow toward the shape boundary instead of stumbling into it.
+
+**Momentum** goes further: each point carries a velocity that persists between steps. The velocity picks up speed toward the shape and decays by friction. Points overshoot, swing back, and settle — like a ball rolling into a valley. This produces a visible oscillation during the run that the other two don't have.
 
 ---
 
