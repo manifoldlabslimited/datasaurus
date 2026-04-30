@@ -1,134 +1,60 @@
 # Datasaurus
 
-A dinosaur, a star, and a circle walk into a dataset. They have the same mean, the same standard deviation, and the same correlation. You can't tell them apart by their statistics. You can only tell them apart by *looking*.
+A dinosaur, a star, and a circle walk into a dataset. They have the same mean, the same standard deviation, and the same correlation. You cannot tell them apart by their statistics. You can only tell them apart by *looking*.
 
 This is the core insight behind [Matejka & Fitzmaurice's 2017 CHI paper](https://www.autodesk.com/research/publications/same-stats-different-graphs): summary statistics can be identical across wildly different distributions. The only defense is to **plot your data**.
 
-Datasaurus makes this visceral. Pick a grid of target shapes, hit Simulate, and watch 142 points rearrange themselves — in real time — from random noise into recognizable figures, all while five statistics hold steady to two decimal places.
+Datasaurus makes this visceral. Pick a grid of target shapes, hit Simulate, and watch 142 points rearrange themselves from random noise into recognizable figures — all while five statistics hold steady to two decimal places.
 
-## The numbers that never change
+<p align="center">
+  <img src="docs/screenshot-running.png" alt="Datasaurus mid-simulation — 9 shapes morphing simultaneously" width="100%" />
+</p>
 
-Every dataset produced by Datasaurus shares these statistics (±0.01):
+<p align="center"><em>Nine shapes, one million steps, identical statistics. Mid-simulation at step 469,000.</em></p>
 
-| Statistic | Value |
-|---|---|
-| Mean x | 54.26 |
-| Mean y | 47.83 |
-| Std dev x | 16.76 |
-| Std dev y | 26.93 |
-| Correlation | −0.06 |
+---
 
-A heart and a dinosaur. A spiral and a grid. Same five numbers. Different stories.
+## The numbers that never move
+
+Every dataset produced by Datasaurus shares these five statistics, within ±0.01:
+
+| | Mean | Std Dev |
+|---|---|---|
+| **x** | 54.26 | 16.76 |
+| **y** | 47.83 | 26.93 |
+| **Correlation** | −0.06 | |
+
+A parabola and a heart. A spiral and a grid. An hourglass and an infinity sign. Same five numbers. Wildly different stories. The statistics never betray which shape you're looking at.
+
+<p align="center">
+  <img src="docs/screenshot-done.png" alt="Datasaurus completed — 9 distinct shapes with identical statistics" width="100%" />
+</p>
+
+<p align="center"><em>Simulation complete. Every cell shows the same x̄, ȳ, σx, σy, and r — to two decimal places.</em></p>
 
 ---
 
 ## How it works
 
-1. **Start with noise.** 142 random points, carefully constructed to already satisfy the target statistics.
-2. **Pick a point, nudge it.** Small Gaussian perturbation — just enough to explore.
-3. **Check the stats.** If any of the five statistics drifts outside ±0.01 tolerance, reject the move. Non-negotiable.
-4. **Check the shape.** If the point moved closer to the target shape, accept. If not, maybe accept anyway — with probability that decreases as the system cools.
-5. **Repeat a million times.** The temperature drops along an easeInOutQuad curve. Early on, the system explores freely. Late in the run, it locks into the shape.
+The algorithm starts with 142 random points that already satisfy the target statistics. Then, one million times:
 
-The result: a point cloud that looks like a dinosaur but is statistically indistinguishable from a circle.
+1. **Pick a point. Nudge it.** A small Gaussian perturbation — just enough to explore.
+2. **Check the stats.** If any of the five statistics drifts outside ±0.01 tolerance, the move is rejected. Non-negotiable.
+3. **Check the shape.** If the point moved closer to the target, accept. If not, maybe accept anyway — with a probability that shrinks as the system cools.
 
-Three algorithms are available:
-- **Simulated Annealing (SA)** — the classic. Blind random walk with Metropolis acceptance.
-- **Langevin Dynamics** — gradient-guided drift toward the shape boundary, plus temperature-scaled noise.
-- **Momentum** — heavy-ball gradient descent. Velocity accumulates, creating a distinctive sweep-and-oscillate motion.
+The temperature follows an easeInOutQuad curve: exploratory early, precise late. By the end, the point cloud has reorganized into a recognizable shape. The five numbers have not changed.
 
-All three preserve the same five statistics throughout.
+Three algorithms are available, each with a distinct visual character:
 
----
-
-## Quick start
-
-### Backend
-
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
-
-```bash
-cd backend
-uv sync
-uv run datasaurus serve
-```
-
-The API is now at `http://localhost:8000`. Hit `/docs` for the interactive Swagger UI.
-
-### Frontend
-
-Requires [Bun](https://bun.sh/) (or Node 18+).
-
-```bash
-cd frontend
-bun install
-bun run dev
-```
-
-Open `http://localhost:3000`. Pick shapes. Hit Simulate. Watch.
+- **Simulated Annealing** — the classic blind random walk with Metropolis acceptance
+- **Langevin Dynamics** — gradient-guided drift toward the shape boundary, plus temperature-scaled noise
+- **Momentum** — heavy-ball descent where velocity accumulates, creating a sweep-and-oscillate motion
 
 ---
 
-## CLI
+## 50 shapes
 
-The backend doubles as a command-line tool.
-
-```bash
-# List all 50 shapes
-uv run datasaurus shapes
-
-# Generate a single dataset
-uv run datasaurus generate heart --plot
-uv run datasaurus generate dino --steps 500000 --seed 42 --output dino.csv
-
-# Generate a gallery of all shapes
-uv run datasaurus gallery --grid 5x10
-
-# Print stats for any CSV with x,y columns
-uv run datasaurus stats heart.csv
-
-# Start the API server
-uv run datasaurus serve --port 8080 --reload
-```
-
----
-
-## API
-
-### `GET /shapes`
-
-Returns all available shape names.
-
-### `GET /generate/batch?shapes=dino,heart,circle&steps=50000`
-
-Server-Sent Events. Streams progress for multiple shapes in lockstep — every event carries the full point cloud for every shape at the same step.
-
-```json
-{
-  "step": 25000,
-  "total": 50000,
-  "cells": [
-    { "shape": "dino", "points": [[54.1, 47.2], ...], "stats": { ... } },
-    { "shape": "heart", "points": [[52.3, 48.1], ...], "stats": { ... } }
-  ]
-}
-```
-
-Final event includes `"done": true`.
-
-### `GET /generate/{shape}?steps=50000`
-
-SSE stream for a single shape.
-
-### `GET /generate/{shape}/final`
-
-Blocking. Runs to completion, returns one JSON response.
-
----
-
-## Shapes (50)
-
-Every shape is defined as line segments in `shapes.py` with a `@shape("name")` decorator.
+Every shape is defined as line segments in code. The simulated annealing process can morph a point cloud into any of them.
 
 | | | | | |
 |---|---|---|---|---|
@@ -145,38 +71,19 @@ Every shape is defined as line segments in `shapes.py` with a `@shape("name")` d
 
 ---
 
-## Architecture
+## The stack
 
-```
-backend/
-├── src/datasaurus/
-│   ├── stats.py        Target statistics, validation, computation
-│   ├── shapes.py       50 shapes as line segment arrays
-│   ├── generator.py    SA / Langevin / Momentum core loops
-│   ├── api.py          FastAPI: SSE streaming, batch endpoint
-│   └── cli.py          Typer CLI: generate, gallery, serve
-└── tests/              223 tests — stats, shapes, generator, API
+**Backend** — Python, FastAPI, Server-Sent Events. The annealing runs in thread pool executors with cancellation support. Each SSE frame carries the full point cloud for every shape in lockstep.
 
-frontend/
-├── src/
-│   ├── app/            Next.js app shell, layout, globals
-│   ├── components/     Grid, scatter canvas, controls, shape picker
-│   ├── hooks/          SSE streaming hook
-│   ├── store/          Zustand state management
-│   └── lib/            Types, theme, animation context
-└── package.json
-```
+**Frontend** — Next.js, Zustand, framer-motion. Scatter plots render on canvas with spring-animated transitions between frames. The grid is configurable up to 5×5 with per-cell shape selection.
+
+**223 tests** covering stats validation, geometry for every shape, SA invariants, and all API endpoints.
 
 ---
 
-## Tests
+## Contributing
 
-```bash
-cd backend
-uv run pytest
-```
-
-223 tests covering stats validation, geometry for every shape, SA invariants (statistics must hold at every snapshot), and all API endpoints. Runs in ~3 seconds.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and development workflow.
 
 ---
 

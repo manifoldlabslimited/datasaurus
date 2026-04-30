@@ -41,6 +41,9 @@ Thumbs.db
 .idea/
 *.iml
 
+# ── Playwright ──
+.playwright-mcp/
+
 # ── AI agent files ──
 AGENTS.md
 CLAUDE.md
