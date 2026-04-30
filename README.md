@@ -24,11 +24,7 @@ Start with 142 random points that already satisfy the target statistics. Then, a
 
 That's it. The temperature falls on an S-curve — loose early, tight late. By the end, the cloud looks like a dinosaur (or a heart, or a hexagon) and the stats haven't moved.
 
-Three flavors:
-
-- **SA** — blind random walk, Metropolis acceptance. The original.
-- **Langevin** — biased toward the shape boundary, with thermal noise. Smoother convergence.
-- **Momentum** — velocity accumulates like a heavy ball rolling downhill. Oscillates, then settles.
+Three algorithms are available: simulated annealing, Langevin dynamics, and momentum. They all preserve the same statistics; they just move points differently.
 
 ---
 
