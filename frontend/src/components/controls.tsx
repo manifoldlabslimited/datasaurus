@@ -13,6 +13,7 @@ import {
 import { useGridStore } from "@/store/grid";
 import { useTheme } from "@/lib/theme";
 import { Sun, Moon, Shuffle } from "lucide-react";
+import { InfoPanel } from "@/components/info-panel";
 
 interface Props {
   onSimulate: () => void;
@@ -150,6 +151,7 @@ export function Controls({ onSimulate, onStop }: Props) {
         >
           {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </Button>
+        <InfoPanel />
       </div>
     </div>
   );
