@@ -3,13 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useGridStore } from "@/store/grid";
 import { useTheme } from "@/lib/theme";
@@ -21,10 +14,8 @@ interface Props {
   onStop: () => void;
 }
 
-const GRID_SIZES = ["1", "2", "3", "4", "5"];
-
 export function Controls({ onSimulate, onStop }: Props) {
-  const { rows, cols, nPoints, algorithm, run, step, total, setRows, setCols, setNPoints, setAlgorithm, randomizeShapes } = useGridStore();
+  const { gridSize, nPoints, algorithm, run, step, total, setGridSize, setNPoints, setAlgorithm, randomizeShapes } = useGridStore();
   const { theme, setTheme } = useTheme();
 
   const progress = total > 0 ? step / total : 0;
@@ -36,37 +27,25 @@ export function Controls({ onSimulate, onStop }: Props) {
 
       {/* Grid size */}
       <ControlGroup>
-        <Label hint="Number of rows in the grid">rows</Label>
-        <Select
-          value={String(rows)}
-          onValueChange={(v) => setRows(Number(v))}
+        <Label hint="Square grid size — number of rows and columns">grid</Label>
+        <ToggleGroup
+          type="single"
+          value={String(gridSize)}
+          onValueChange={(v) => { if (v) setGridSize(Number(v)); }}
           disabled={running}
+          className="gap-0.5 rounded-md border border-border p-0.5"
         >
-          <SelectTrigger className="h-7 w-14 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {GRID_SIZES.map((s) => (
-              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-muted-foreground/30 text-xs">×</span>
-        <Select
-          value={String(cols)}
-          onValueChange={(v) => setCols(Number(v))}
-          disabled={running}
-        >
-          <SelectTrigger className="h-7 w-14 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {GRID_SIZES.map((s) => (
-              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Label hint="Number of columns in the grid">cols</Label>
+          {["1", "2", "3", "4", "5"].map((n) => (
+            <ToggleGroupItem
+              key={n}
+              value={n}
+              className="h-6 w-7 rounded text-[11px]"
+              aria-label={`${n}×${n} grid`}
+            >
+              {n}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </ControlGroup>
 
       <Separator />
@@ -174,21 +153,14 @@ export function Controls({ onSimulate, onStop }: Props) {
   );
 }
 
-/** Visual group for related controls. */
 function ControlGroup({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      {children}
-    </div>
-  );
+  return <div className="flex items-center gap-2">{children}</div>;
 }
 
-/** Thin vertical separator between control groups. */
 function Separator() {
   return <div className="h-5 w-px bg-border/60" />;
 }
 
-/** Label with tooltip on hover. */
 function Label({ hint, children }: { hint: string; children: React.ReactNode }) {
   return (
     <Hint text={hint}>
@@ -199,7 +171,6 @@ function Label({ hint, children }: { hint: string; children: React.ReactNode }) 
   );
 }
 
-/** Tooltip wrapper. */
 function Hint({ text, children }: { text: string; children: React.ReactNode }) {
   return (
     <Tooltip>
