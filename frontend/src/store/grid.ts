@@ -61,7 +61,7 @@ export const useGridStore = create<GridState>()(
     total: 0,
     steps: 400_000,
     nPoints: 142,
-    algorithm: "sa" as Algorithm,
+    algorithm: "momentum" as Algorithm,
     error: null,
 
     setShape: (idx, shape) =>

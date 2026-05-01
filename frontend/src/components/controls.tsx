@@ -79,7 +79,7 @@ export function Controls({ onSimulate, onStop }: Props) {
           disabled={running}
           className="gap-0.5 rounded-md border border-border p-0.5"
         >
-          <ToggleGroupItem value="sa" className="h-6 rounded px-2 text-[11px]" aria-label="Simulated Annealing — blind random walk. The original method from the paper.">SA</ToggleGroupItem>
+          <ToggleGroupItem value="sa" className="h-6 rounded px-2 text-[11px]" aria-label="Simulated Annealing — blind random walk. The original method from the paper.">Annealing</ToggleGroupItem>
           <ToggleGroupItem value="langevin" className="h-6 rounded px-2 text-[11px]" aria-label="Langevin Dynamics — points are nudged toward the shape boundary with thermal noise.">Langevin</ToggleGroupItem>
           <ToggleGroupItem value="momentum" className="h-6 rounded px-2 text-[11px]" aria-label="Momentum — points carry velocity that accumulates toward the shape. Overshoots and settles.">Momentum</ToggleGroupItem>
         </ToggleGroup>
