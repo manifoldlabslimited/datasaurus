@@ -43,6 +43,7 @@ Thumbs.db
 
 # ── Playwright ──
 .playwright-mcp/
+review-*.png
 
 # ── AI agent files ──
 AGENTS.md
