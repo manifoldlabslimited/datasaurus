@@ -4,9 +4,7 @@ import { useShallow } from "zustand/shallow";
 import { useGridStore } from "@/store/grid";
 import type { CellStats } from "@/lib/types";
 import { cn } from "@/lib/cn";
-
-/** Target stats from the original paper. */
-const TARGET: CellStats = { mean_x: 54.26, mean_y: 47.83, std_x: 16.76, std_y: 26.93, correlation: -0.06 };
+import { TARGET_STATS } from "@/lib/constants";
 
 export function StatsBar() {
   const run = useGridStore((s) => s.run);
@@ -25,7 +23,7 @@ export function StatsBar() {
     };
   }));
 
-  const stats = liveStats ?? TARGET;
+  const stats = liveStats ?? TARGET_STATS;
   const dimmed = !liveStats;
   const running = run === "running";
 

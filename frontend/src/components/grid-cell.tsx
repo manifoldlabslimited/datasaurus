@@ -6,21 +6,19 @@ import { useGridStore } from "@/store/grid";
 import type { GridCell } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { formatShapeName } from "@/lib/format";
+import { TARGET_STATS } from "@/lib/constants";
 
 interface Props {
   cell: GridCell;
   index: number;
 }
 
-/** Target stats — shown dimmed before simulation starts. */
-const TARGET = { mean_x: 54.26, mean_y: 47.83, std_x: 16.76, std_y: 26.93, correlation: -0.06 };
-
 export function GridCell({ cell, index }: Props) {
   const setShape = useGridStore((s) => s.setShape);
   const running = useGridStore((s) => s.run === "running");
   const hasPoints = cell.points !== null && cell.points.length > 0;
 
-  const stats = cell.stats ?? (hasPoints ? null : TARGET);
+  const stats = cell.stats ?? (hasPoints ? null : TARGET_STATS);
   const dimmed = !cell.stats;
 
   return (
