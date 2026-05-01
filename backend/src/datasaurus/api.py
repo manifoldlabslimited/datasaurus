@@ -26,11 +26,6 @@ from .stats import TargetStats, compute_stats
 
 _TARGET = TargetStats()
 
-# ── Guardrails ──
-MAX_CONCURRENT_STREAMS = 10    # total simultaneous SSE connections
-_active_streams = 0
-_streams_lock = threading.Lock()
-
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "").split(",") if os.environ.get("ALLOWED_ORIGINS") else ["*"]
 
 
@@ -82,22 +77,6 @@ def _check_batch_shapes(
     return shape_list
 
 
-def _acquire_stream() -> None:
-    """Increment active stream count or reject if at capacity."""
-    global _active_streams
-    with _streams_lock:
-        if _active_streams >= MAX_CONCURRENT_STREAMS:
-            raise HTTPException(status_code=503, detail="Server is busy. Try again in a moment.")
-        _active_streams += 1
-
-
-def _release_stream() -> None:
-    """Decrement active stream count."""
-    global _active_streams
-    with _streams_lock:
-        _active_streams = max(0, _active_streams - 1)
-
-
 @app.get("/shapes")
 def list_shapes() -> list[str]:
     """Return all available built-in shape names."""
@@ -108,9 +87,12 @@ def list_shapes() -> list[str]:
 async def generate_batch_sse(
     params: Annotated[GenerateParams, Query()],
     shape_list: Annotated[list[str], Depends(_check_batch_shapes)],
-    _stream: Annotated[None, Depends(_acquire_stream)],
 ) -> AsyncIterable[ServerSentEvent]:
-    """Stream SA progress for multiple shapes simultaneously."""
+    """Stream SA progress for multiple shapes simultaneously.
+
+    Producer threads check a cancellation event so they stop promptly when the
+    client disconnects or a new request supersedes this one.
+    """
     loop = asyncio.get_running_loop()
     cancelled = threading.Event()
     queues: list[asyncio.Queue] = [asyncio.Queue(maxsize=2) for _ in shape_list]
@@ -164,14 +146,12 @@ async def generate_batch_sse(
     finally:
         cancelled.set()
         await asyncio.gather(*producer_futures, return_exceptions=True)
-        _release_stream()
 
 
 @app.get("/generate/{shape}", response_class=EventSourceResponse, dependencies=[Depends(_check_shape)])
 async def generate_sse(
     shape: str,
     params: Annotated[GenerateParams, Query()],
-    _stream: Annotated[None, Depends(_acquire_stream)],
 ) -> AsyncIterable[ServerSentEvent]:
     """Stream SA progress as Server-Sent Events."""
     segs = get_shape(shape)
@@ -179,22 +159,19 @@ async def generate_sse(
     loop = asyncio.get_running_loop()
     stream = generate_stream(segs, _TARGET, config, snapshot_every=params.snapshot_every)
 
-    try:
-        while True:
-            result = await loop.run_in_executor(None, next, stream, None)
-            if result is None:
-                break
-            step, x, y = result
-            is_final = step == params.steps
-            data: dict = {"step": step, "total": params.steps, "points": np.column_stack([x, y]).tolist()}
-            if is_final:
-                df = pd.DataFrame({"x": x, "y": y})
-                stats = compute_stats(df)
-                data["stats"] = {k: round(float(v), 6) for k, v in stats.items()}
-                data["done"] = True
-            yield ServerSentEvent(data=data)
-    finally:
-        _release_stream()
+    while True:
+        result = await loop.run_in_executor(None, next, stream, None)
+        if result is None:
+            break
+        step, x, y = result
+        is_final = step == params.steps
+        data: dict = {"step": step, "total": params.steps, "points": np.column_stack([x, y]).tolist()}
+        if is_final:
+            df = pd.DataFrame({"x": x, "y": y})
+            stats = compute_stats(df)
+            data["stats"] = {k: round(float(v), 6) for k, v in stats.items()}
+            data["done"] = True
+        yield ServerSentEvent(data=data)
 
 
 @app.get("/generate/{shape}/final", dependencies=[Depends(_check_shape)])
