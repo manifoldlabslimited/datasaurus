@@ -5,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useGridStore } from "@/store/grid";
-import { useTheme } from "@/lib/theme";
+import { useTheme } from "next-themes";
 import { Sun, Moon, Shuffle } from "lucide-react";
 import { InfoPanel } from "@/components/info-panel";
 
