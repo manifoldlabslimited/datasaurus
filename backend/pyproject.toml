@@ -1,8 +1,7 @@
 [project]
 name = "datasaurus"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Same stats, different shapes — real-time simulated annealing visualization"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.136.1",
