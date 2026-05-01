@@ -35,7 +35,7 @@ export function Controls({ onSimulate, onStop }: Props) {
           disabled={running}
           className="gap-0.5 rounded-md border border-border p-0.5"
         >
-          {["1", "2", "3", "4", "5"].map((n) => (
+          {["1", "2", "3", "4"].map((n) => (
             <ToggleGroupItem
               key={n}
               value={n}
