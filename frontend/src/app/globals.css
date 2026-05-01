@@ -6,25 +6,25 @@
 /* ── Perpetuity — tweakcn.com/r/themes/perpetuity.json ── */
 
 :root {
-  --background:            oklch(0.9491 0.0085 197.0126);
-  --foreground:            oklch(0.3772 0.0619 212.6640);
-  --card:            oklch(0.9724 0.0053 197.0692);
-  --card-foreground:            oklch(0.3772 0.0619 212.6640);
-  --popover:            oklch(0.9724 0.0053 197.0692);
-  --popover-foreground:            oklch(0.3772 0.0619 212.6640);
-  --primary:            oklch(0.5624 0.0947 203.2755);
-  --primary-foreground:            oklch(1.0000 0 0);
-  --secondary:            oklch(0.9244 0.0181 196.8450);
-  --secondary-foreground:            oklch(0.3772 0.0619 212.6640);
-  --muted:            oklch(0.9295 0.0107 196.9723);
-  --muted-foreground:            oklch(0.5428 0.0594 201.5662);
-  --accent:            oklch(0.9021 0.0297 201.8915);
-  --accent-foreground:            oklch(0.3772 0.0619 212.6640);
-  --destructive:            oklch(0.5732 0.1901 25.5409);
-  --border:            oklch(0.8931 0.0205 204.4136);
-  --input:            oklch(0.9244 0.0181 196.8450);
-  --ring:            oklch(0.5624 0.0947 203.2755);
-  --dot-color:            oklch(0.5624 0.0947 203.2755);
+  --background:            oklch(0.97 0.005 200);
+  --foreground:            oklch(0.25 0.04 215);
+  --card:            oklch(1.0 0 0);
+  --card-foreground:            oklch(0.25 0.04 215);
+  --popover:            oklch(1.0 0 0);
+  --popover-foreground:            oklch(0.25 0.04 215);
+  --primary:            oklch(0.45 0.12 200);
+  --primary-foreground:            oklch(1.0 0 0);
+  --secondary:            oklch(0.92 0.015 200);
+  --secondary-foreground:            oklch(0.30 0.05 215);
+  --muted:            oklch(0.94 0.008 200);
+  --muted-foreground:            oklch(0.45 0.04 210);
+  --accent:            oklch(0.88 0.04 200);
+  --accent-foreground:            oklch(0.25 0.04 215);
+  --destructive:            oklch(0.55 0.19 27);
+  --border:            oklch(0.84 0.025 205);
+  --input:            oklch(0.90 0.015 200);
+  --ring:            oklch(0.45 0.12 200);
+  --dot-color:            oklch(0.40 0.12 200);
   --radius:            0.125rem;
   --font-sans:            Source Code Pro, monospace;
   --font-mono:            Source Code Pro, monospace;
