@@ -64,7 +64,7 @@ export const useGridStore = create<GridState>()(
     run: "idle",
     step: 0,
     total: 0,
-    steps: 1_000_000,
+    steps: 400_000,
     nPoints: 142,
     algorithm: "sa" as Algorithm,
     error: null,
