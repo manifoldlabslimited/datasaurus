@@ -184,6 +184,51 @@ def generate_stream(
     yield from loops[config.algorithm](x, y, tree, target, config, rng, snapshot_every, temps)
 
 
+def generate_batch_stream(
+    shape_segments: list[tuple[str, "Segments"]],
+    target: TargetStats | None = None,
+    config: GeneratorConfig | None = None,
+    snapshot_every: int = 1_000,
+):
+    """Run multiple shapes in a single thread and yield combined snapshots.
+
+    Each yield is a tuple of (step, cells) where cells is a list of
+    (shape_name, x, y) tuples — one per shape, all at the same step.
+
+    This avoids the thread-per-shape model entirely. Python's GIL means
+    threads don't give real parallelism for CPU-bound numpy work anyway.
+    Running sequentially in one thread eliminates all synchronization overhead.
+    """
+    if target is None:
+        target = TargetStats()
+    if config is None:
+        config = GeneratorConfig()
+
+    # Create independent generators for each shape
+    streams = []
+    for name, segs in shape_segments:
+        gen = generate_stream(segs, target, config, snapshot_every)
+        streams.append((name, gen))
+
+    # All generators yield step 0 first, then snapshots at snapshot_every intervals.
+    # Since they all use the same config, they yield at the same steps.
+    while True:
+        cells = []
+        done = False
+        for name, gen in streams:
+            result = next(gen, None)
+            if result is None:
+                done = True
+                break
+            step, x, y = result
+            cells.append((name, step, x, y))
+
+        if done or not cells:
+            break
+
+        yield cells[0][1], [(name, x, y) for name, _, x, y in cells]
+
+
 def _sa_loop(x, y, tree: KDTree, target, config, rng, snapshot_every, temps):
     """Matejka & Fitzmaurice (2017) simulated annealing.
 

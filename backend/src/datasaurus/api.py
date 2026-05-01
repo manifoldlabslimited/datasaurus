@@ -9,7 +9,6 @@ Endpoints:
 
 import asyncio
 import os
-import threading
 from collections.abc import AsyncIterable
 from typing import Annotated
 
@@ -20,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, ConfigDict, Field
 
-from .generator import Algorithm, GeneratorConfig, generate_stream
+from .generator import Algorithm, GeneratorConfig, generate_stream, generate_batch_stream
 from .shapes import available_shapes, get_shape
 from .stats import TargetStats, compute_stats
 
@@ -90,62 +89,39 @@ async def generate_batch_sse(
 ) -> AsyncIterable[ServerSentEvent]:
     """Stream SA progress for multiple shapes simultaneously.
 
-    Producer threads check a cancellation event so they stop promptly when the
-    client disconnects or a new request supersedes this one.
+    All shapes run in a single thread (Python's GIL means threads don't give
+    real parallelism for CPU-bound numpy work). Each SSE event carries the
+    full point cloud for every shape at the same step.
     """
     loop = asyncio.get_running_loop()
-    cancelled = threading.Event()
-    queues: list[asyncio.Queue] = [asyncio.Queue(maxsize=2) for _ in shape_list]
+    shape_segments = [(name, get_shape(name)) for name in shape_list]
+    config = GeneratorConfig(
+        max_steps=params.steps, seed=params.seed,
+        n_points=params.n_points, show_progress=False, algorithm=params.algorithm,
+    )
+    stream = generate_batch_stream(shape_segments, _TARGET, config, snapshot_every=params.snapshot_every)
 
-    def producer(segs, config, q: asyncio.Queue) -> None:
-        for step, x, y in generate_stream(segs, _TARGET, config, snapshot_every=params.snapshot_every):
-            if cancelled.is_set():
-                return
-            future = asyncio.run_coroutine_threadsafe(q.put((step, x.copy(), y.copy())), loop)
-            try:
-                future.result(timeout=5.0)
-            except Exception:
-                return
-        if not cancelled.is_set():
-            asyncio.run_coroutine_threadsafe(q.put(None), loop).result(timeout=5.0)
+    while True:
+        result = await loop.run_in_executor(None, next, stream, None)
+        if result is None:
+            break
 
-    producer_futures = [
-        loop.run_in_executor(
-            None,
-            producer,
-            get_shape(shape),
-            GeneratorConfig(max_steps=params.steps, seed=params.seed, n_points=params.n_points, show_progress=False, algorithm=params.algorithm),
-            q,
-        )
-        for shape, q in zip(shape_list, queues)
-    ]
+        step, shape_data = result
+        is_final = step == params.steps
+        cells = []
+        for shape_name, x, y in shape_data:
+            df = pd.DataFrame({"x": x, "y": y})
+            stats = compute_stats(df)
+            cells.append({
+                "shape": shape_name,
+                "points": np.column_stack([x, y]).tolist(),
+                "stats": {k: round(float(v), 6) for k, v in stats.items()},
+            })
 
-    try:
-        while True:
-            snapshots = await asyncio.gather(*[q.get() for q in queues])
-            if any(s is None for s in snapshots):
-                break
-
-            step: int = snapshots[0][0]
-            is_final = step == params.steps
-            cells = []
-            for shape_name, (_, x, y) in zip(shape_list, snapshots):
-                df = pd.DataFrame({"x": x, "y": y})
-                stats = compute_stats(df)
-                cell: dict = {
-                    "shape": shape_name,
-                    "points": np.column_stack([x, y]).tolist(),
-                    "stats": {k: round(float(v), 6) for k, v in stats.items()},
-                }
-                cells.append(cell)
-
-            event: dict = {"step": step, "total": params.steps, "cells": cells}
-            if is_final:
-                event["done"] = True
-            yield ServerSentEvent(data=event)
-    finally:
-        cancelled.set()
-        await asyncio.gather(*producer_futures, return_exceptions=True)
+        event: dict = {"step": step, "total": params.steps, "cells": cells}
+        if is_final:
+            event["done"] = True
+        yield ServerSentEvent(data=event)
 
 
 @app.get("/generate/{shape}", response_class=EventSourceResponse, dependencies=[Depends(_check_shape)])
