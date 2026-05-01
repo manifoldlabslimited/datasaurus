@@ -2,12 +2,12 @@
 
 import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
+import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 
 export function InfoPanel() {
   return (
-    <Sheet>
-      <SheetTrigger asChild>
+    <Dialog>
+      <DialogTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
@@ -16,83 +16,91 @@ export function InfoPanel() {
         >
           <Info className="h-3.5 w-3.5" />
         </Button>
-      </SheetTrigger>
-      <SheetContent>
-        <div className="flex h-full flex-col overflow-y-auto px-5 py-4 text-sm leading-relaxed text-foreground/90">
-          <h2 className="mb-4 text-base font-semibold text-foreground">
-            About Datasaurus
-          </h2>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <div className="space-y-5 px-6 py-5">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">
+              Same stats. Different shapes.
+            </h2>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              Every cell in the grid shares the same mean, standard deviation,
+              and correlation — to two decimal places. The shapes look nothing
+              alike. That&apos;s the point: summary statistics hide the structure
+              of your data.
+            </p>
+          </div>
 
-          <Section title="What am I looking at?">
-            Each cell contains 142 points being rearranged into a target
-            shape. The catch: five summary statistics — mean x, mean y,
-            standard deviation x, standard deviation y, and correlation —
-            stay the same across every cell, to two decimal places.
-            A heart and a dinosaur are statistically identical.
-          </Section>
+          <hr className="border-border" />
 
-          <Section title="Why does this matter?">
-            Summary statistics compress a dataset into a few numbers.
-            That compression throws away the shape of the data — where
-            points cluster, what patterns they form. Two datasets can
-            share the same mean, spread, and correlation while looking
-            completely different. If you don&apos;t plot your data, you
-            can&apos;t see what&apos;s actually there.
-          </Section>
+          <div>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              The algorithm
+            </h3>
+            <div className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground">
+              <Step n="1">
+                Start with random points that already have the target statistics.
+              </Step>
+              <Step n="2">
+                Nudge one point at a time toward the target shape.
+              </Step>
+              <Step n="3">
+                Reject any move that changes the statistics by more than ±0.01.
+              </Step>
+            </div>
+          </div>
 
-          <Section title="How it works">
-            The algorithm starts with random noise that already has the
-            right statistics. Then it nudges one point at a time toward
-            the target shape. Any move that pushes a statistic outside
-            ±0.01 tolerance is rejected. Moves that bring points closer
-            to the shape are accepted; moves that don&apos;t are accepted
-            with decreasing probability as the system cools.
-          </Section>
+          <hr className="border-border" />
 
-          <Section title="Controls">
-            <ControlItem label="Rows / Cols" desc="Grid size, up to 5×5." />
-            <ControlItem label="Pts" desc="Points per dataset (50–500). Default 142, matching the original paper." />
-            <ControlItem label="Algo" desc="SA (random walk), Langevin (directed), or Momentum (velocity-based)." />
-            <ControlItem label="Shape pickers" desc="Click any cell's dropdown to choose its target shape." />
-            <ControlItem label="Randomize" desc="Deal new random shapes into all cells." />
-            <ControlItem label="Simulate" desc="Run the algorithm with current shapes." />
-            <ControlItem label="Stop" desc="Freeze the simulation where it is." />
-          </Section>
+          <div>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              The invariant
+            </h3>
+            <div className="mt-2 grid grid-cols-5 gap-1 text-center font-mono text-[11px]">
+              <StatBox label="x̄" value="54.26" />
+              <StatBox label="ȳ" value="47.83" />
+              <StatBox label="σx" value="16.76" />
+              <StatBox label="σy" value="26.93" />
+              <StatBox label="r" value="−0.06" />
+            </div>
+          </div>
 
-          <div className="mt-auto border-t border-border pt-3 text-[10px] text-muted-foreground">
+          <hr className="border-border" />
+
+          <p className="text-[10px] text-muted-foreground/60">
             Based on{" "}
             <a
               href="https://www.autodesk.com/research/publications/same-stats-different-graphs"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
+              className="underline underline-offset-2 hover:text-muted-foreground"
             >
-              Same Stats, Different Graphs
-            </a>{" "}
-            by Matejka &amp; Fitzmaurice (CHI 2017).
-          </div>
+              Matejka &amp; Fitzmaurice (CHI 2017)
+            </a>
+            . Original Datasaurus by Alberto Cairo.
+          </p>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Step({ n, children }: { n: string; children: React.ReactNode }) {
   return (
-    <div className="mb-4">
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h3>
-      <div className="text-[13px]">{children}</div>
+    <div className="flex gap-2.5">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+        {n}
+      </span>
+      <span className="pt-0.5">{children}</span>
     </div>
   );
 }
 
-function ControlItem({ label, desc }: { label: string; desc: string }) {
+function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mt-1.5 flex gap-2">
-      <span className="shrink-0 font-mono text-[11px] text-primary">{label}</span>
-      <span className="text-[12px] text-muted-foreground">{desc}</span>
+    <div className="rounded bg-secondary/50 px-1.5 py-1.5">
+      <div className="text-[9px] text-muted-foreground/60">{label}</div>
+      <div className="text-xs text-foreground">{value}</div>
     </div>
   );
 }

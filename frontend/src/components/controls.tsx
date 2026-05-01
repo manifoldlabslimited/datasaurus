@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useGridStore } from "@/store/grid";
 import { useTheme } from "@/lib/theme";
 import { Sun, Moon, Shuffle } from "lucide-react";
@@ -35,7 +36,9 @@ export function Controls({ onSimulate, onStop }: Props) {
 
       {/* Grid size */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">rows</span>
+        <Hint text="Number of rows in the grid">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide cursor-help">rows</span>
+        </Hint>
         <Select
           value={String(rows)}
           onValueChange={(v) => setRows(Number(v))}
@@ -50,7 +53,9 @@ export function Controls({ onSimulate, onStop }: Props) {
             ))}
           </SelectContent>
         </Select>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">cols</span>
+        <Hint text="Number of columns in the grid">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide cursor-help">cols</span>
+        </Hint>
         <Select
           value={String(cols)}
           onValueChange={(v) => setCols(Number(v))}
@@ -69,9 +74,11 @@ export function Controls({ onSimulate, onStop }: Props) {
 
       {/* Points slider */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-          pts
-        </span>
+        <Hint text="Points per dataset. Default 142, matching the original paper. More points = sharper shapes, slower simulation.">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide cursor-help">
+            pts
+          </span>
+        </Hint>
         <Slider
           min={50}
           max={500}
@@ -86,7 +93,9 @@ export function Controls({ onSimulate, onStop }: Props) {
 
       {/* Algorithm */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">algo</span>
+        <Hint text="Algorithm for moving points toward the target shape">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide cursor-help">algo</span>
+        </Hint>
         <ToggleGroup
           type="single"
           value={algorithm}
@@ -94,9 +103,15 @@ export function Controls({ onSimulate, onStop }: Props) {
           disabled={running}
           className="gap-0.5"
         >
-          <ToggleGroupItem value="sa" className="h-7 px-2 text-xs" aria-label="Simulated Annealing">SA</ToggleGroupItem>
-          <ToggleGroupItem value="langevin" className="h-7 px-2 text-xs" aria-label="Langevin Dynamics">Langevin</ToggleGroupItem>
-          <ToggleGroupItem value="momentum" className="h-7 px-2 text-xs" aria-label="Momentum">Momentum</ToggleGroupItem>
+          <Hint text="Simulated Annealing — blind random walk. The original method from the paper.">
+            <ToggleGroupItem value="sa" className="h-7 px-2 text-xs" aria-label="Simulated Annealing">SA</ToggleGroupItem>
+          </Hint>
+          <Hint text="Langevin Dynamics — points are nudged toward the shape boundary with thermal noise.">
+            <ToggleGroupItem value="langevin" className="h-7 px-2 text-xs" aria-label="Langevin Dynamics">Langevin</ToggleGroupItem>
+          </Hint>
+          <Hint text="Momentum — points carry velocity that accumulates toward the shape. Overshoots and settles.">
+            <ToggleGroupItem value="momentum" className="h-7 px-2 text-xs" aria-label="Momentum">Momentum</ToggleGroupItem>
+          </Hint>
         </ToggleGroup>
       </div>
 
@@ -126,33 +141,48 @@ export function Controls({ onSimulate, onStop }: Props) {
 
       {/* Actions */}
       <div className="flex items-center gap-2 ml-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={randomizeShapes}
-          disabled={running}
-          className="text-xs h-7 gap-1"
-          aria-label="Randomize shapes"
-        >
-          <Shuffle className="h-3 w-3" />
-          Randomize
-        </Button>
+        <Hint text="Deal new random shapes into all cells">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={randomizeShapes}
+            disabled={running}
+            className="text-xs h-7 gap-1"
+            aria-label="Randomize shapes"
+          >
+            <Shuffle className="h-3 w-3" />
+            Randomize
+          </Button>
+        </Hint>
         {running ? (
           <Button variant="outline" size="sm" onClick={onStop} className="text-xs h-7">Stop</Button>
         ) : (
-          <Button size="sm" onClick={onSimulate} className="text-xs h-7">Simulate</Button>
+          <Hint text="Run the simulation with the current shape selections">
+            <Button size="sm" onClick={onSimulate} className="text-xs h-7">Simulate</Button>
+          </Hint>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          aria-label="Toggle theme"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
-          {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-        </Button>
+        <Hint text="Switch between light and dark theme">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="Toggle theme"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </Button>
+        </Hint>
         <InfoPanel />
       </div>
     </div>
+  );
+}
+
+function Hint({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{text}</TooltipContent>
+    </Tooltip>
   );
 }
