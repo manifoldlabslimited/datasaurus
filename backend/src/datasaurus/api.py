@@ -27,7 +27,6 @@ from .stats import TargetStats, compute_stats
 _TARGET = TargetStats()
 
 # ── Guardrails ──
-MAX_BATCH_SHAPES = 25          # 5×5 grid max
 MAX_CONCURRENT_STREAMS = 10    # total simultaneous SSE connections
 _active_streams = 0
 _streams_lock = threading.Lock()
@@ -73,8 +72,6 @@ def _check_batch_shapes(
     shape_list = [s.strip() for s in shapes.split(",") if s.strip()]
     if not shape_list:
         raise HTTPException(status_code=422, detail="No shapes provided.")
-    if len(shape_list) > MAX_BATCH_SHAPES:
-        raise HTTPException(status_code=422, detail=f"Too many shapes ({len(shape_list)}). Maximum is {MAX_BATCH_SHAPES}.")
     available = set(available_shapes())
     unknown = [s for s in shape_list if s not in available]
     if unknown:

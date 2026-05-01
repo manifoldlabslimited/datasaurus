@@ -7,7 +7,7 @@ import type { BatchEvent } from "@/lib/types";
 export const SNAPSHOT_EVERY = 1_000;
 
 /** If no SSE message arrives within this time, assume the connection is dead. */
-const CONNECTION_TIMEOUT_MS = 15_000;
+const CONNECTION_TIMEOUT_MS = 30_000;
 
 export function useBatchSSE() {
   const esRef = useRef<EventSource | null>(null);
