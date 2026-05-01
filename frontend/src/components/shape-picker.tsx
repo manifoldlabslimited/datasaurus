@@ -17,6 +17,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/cn";
+import { formatShapeName } from "@/lib/format";
 
 interface Props {
   value: string;
@@ -39,7 +40,7 @@ export function ShapePicker({ value, onChange, disabled }: Props) {
           "disabled:pointer-events-none disabled:opacity-40",
         )}
       >
-        <span className="truncate font-mono">{value}</span>
+        <span className="truncate">{formatShapeName(value)}</span>
         <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
       </PopoverTrigger>
       <PopoverContent
@@ -71,7 +72,7 @@ export function ShapePicker({ value, onChange, disabled }: Props) {
                       value === shape ? "opacity-100" : "opacity-0",
                     )}
                   />
-                  {shape}
+                  {formatShapeName(shape)}
                 </CommandItem>
               ))}
             </CommandGroup>

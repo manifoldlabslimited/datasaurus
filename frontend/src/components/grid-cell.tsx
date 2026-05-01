@@ -5,21 +5,31 @@ import { ShapePicker } from "@/components/shape-picker";
 import { useGridStore } from "@/store/grid";
 import type { GridCell } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { formatShapeName } from "@/lib/format";
 
 interface Props {
   cell: GridCell;
   index: number;
 }
 
+/** Target stats — shown dimmed before simulation starts. */
+const TARGET = { mean_x: 54.26, mean_y: 47.83, std_x: 16.76, std_y: 26.93, correlation: -0.06 };
+
 export function GridCell({ cell, index }: Props) {
   const setShape = useGridStore((s) => s.setShape);
   const running = useGridStore((s) => s.run === "running");
+  const hasPoints = cell.points !== null && cell.points.length > 0;
+
+  const stats = cell.stats ?? (hasPoints ? null : TARGET);
+  const dimmed = !cell.stats;
 
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-col gap-1 rounded-lg border bg-card p-2",
-        running ? "border-primary/50" : "border-border",
+        "group flex min-h-0 flex-col gap-1 rounded-lg border bg-card p-2 transition-colors",
+        running
+          ? "border-primary/50"
+          : "border-border hover:border-primary/30",
       )}
     >
       <ShapePicker
@@ -29,13 +39,31 @@ export function GridCell({ cell, index }: Props) {
       />
       <div className="relative min-h-0 flex-1 overflow-hidden rounded">
         <ScatterCanvas points={cell.points} />
-        {cell.stats && (
-          <div className="absolute inset-x-0 bottom-0 flex justify-center gap-3 bg-card/75 px-2 py-1 backdrop-blur-sm">
-            <StatChip label="x̄" value={cell.stats.mean_x} />
-            <StatChip label="ȳ" value={cell.stats.mean_y} />
-            <StatChip label="σx" value={cell.stats.std_x} />
-            <StatChip label="σy" value={cell.stats.std_y} />
-            <StatChip label="r" value={cell.stats.correlation} />
+
+        {/* Empty state — show shape name as watermark */}
+        {!hasPoints && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-lg font-semibold text-muted-foreground/15 select-none">
+              {formatShapeName(cell.shape)}
+            </span>
+          </div>
+        )}
+
+        {/* Stats overlay */}
+        {stats && (
+          <div
+            className={cn(
+              "absolute inset-x-0 bottom-0 flex justify-center gap-3 px-2 py-1",
+              dimmed
+                ? "opacity-30"
+                : "bg-card/75 backdrop-blur-sm",
+            )}
+          >
+            <StatChip label="x̄" value={stats.mean_x} />
+            <StatChip label="ȳ" value={stats.mean_y} />
+            <StatChip label="σx" value={stats.std_x} />
+            <StatChip label="σy" value={stats.std_y} />
+            <StatChip label="r" value={stats.correlation} />
           </div>
         )}
       </div>

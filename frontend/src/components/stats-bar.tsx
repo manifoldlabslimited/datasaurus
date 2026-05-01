@@ -3,12 +3,16 @@
 import { useShallow } from "zustand/shallow";
 import { useGridStore } from "@/store/grid";
 import type { CellStats } from "@/lib/types";
+import { cn } from "@/lib/cn";
+
+/** Target stats from the original paper. */
+const TARGET: CellStats = { mean_x: 54.26, mean_y: 47.83, std_x: 16.76, std_y: 26.93, correlation: -0.06 };
 
 export function StatsBar() {
   const run = useGridStore((s) => s.run);
   const step = useGridStore((s) => s.step);
   const total = useGridStore((s) => s.total);
-  const stats = useGridStore(useShallow((s) => {
+  const liveStats = useGridStore(useShallow((s) => {
     const withStats = s.cells.filter((c): c is typeof c & { stats: CellStats } => c.stats !== null);
     if (withStats.length === 0) return null;
     const n = withStats.length;
@@ -20,10 +24,10 @@ export function StatsBar() {
       correlation: withStats.reduce((sum, c) => sum + c.stats.correlation, 0) / n,
     };
   }));
-  const running = run === "running";
 
-  const fmt = (n: number | undefined) =>
-    n !== undefined ? n.toFixed(2) : "—";
+  const stats = liveStats ?? TARGET;
+  const dimmed = !liveStats;
+  const running = run === "running";
 
   return (
     <div className="flex h-9 items-center justify-between border-b border-border bg-card px-4 text-[11px]">
@@ -31,12 +35,12 @@ export function StatsBar() {
         Datasaurus
       </span>
 
-      <div className="flex items-center gap-6 text-muted-foreground">
-        <StatItem label="x̄" value={fmt(stats?.mean_x)} />
-        <StatItem label="ȳ" value={fmt(stats?.mean_y)} />
-        <StatItem label="σx" value={fmt(stats?.std_x)} />
-        <StatItem label="σy" value={fmt(stats?.std_y)} />
-        <StatItem label="r" value={fmt(stats?.correlation)} />
+      <div className={cn("flex items-center gap-6", dimmed ? "opacity-30" : "text-muted-foreground")}>
+        <StatItem label="x̄" value={stats.mean_x.toFixed(2)} />
+        <StatItem label="ȳ" value={stats.mean_y.toFixed(2)} />
+        <StatItem label="σx" value={stats.std_x.toFixed(2)} />
+        <StatItem label="σy" value={stats.std_y.toFixed(2)} />
+        <StatItem label="r" value={stats.correlation.toFixed(2)} />
       </div>
 
       <div className="text-[10px] text-muted-foreground tabular-nums min-w-16 text-right">

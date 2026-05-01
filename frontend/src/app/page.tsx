@@ -24,6 +24,24 @@ export default function Home() {
       });
   }, [initShapes]);
 
+  // Keyboard shortcuts: Enter = simulate, Escape = stop
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger when typing in an input or search field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === "Enter" && useGridStore.getState().run !== "running") {
+        e.preventDefault();
+        start();
+      } else if (e.key === "Escape" && useGridStore.getState().run === "running") {
+        e.preventDefault();
+        stop();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [start, stop]);
+
   return (
     <AnimProvider value={frameIntervalRef}>
       <div className="flex h-screen flex-col overflow-hidden">
