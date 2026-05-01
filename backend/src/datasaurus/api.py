@@ -5,21 +5,10 @@ Endpoints:
   GET /generate/batch                 — SSE stream for multiple shapes in lockstep
   GET /generate/{shape}               — SSE stream of SA progress snapshots
   GET /generate/{shape}/final         — blocking, returns final dataset as JSON
-
-SSE event format (generate/batch):
-  data: {"step": 5000, "total": 50000, "cells": [{"shape": "dino", "points": [[x,y],...]}, ...]}
-
-Final batch event additionally includes per-cell stats and done:
-  data: {"step": 50000, "total": 50000, "done": true, "cells": [{"shape": ..., "stats": {...}}, ...]}
-
-SSE event format (generate/{shape}):
-  data: {"step": 5000, "total": 50000, "points": [[x, y], ...]}
-
-Final event additionally includes:
-  data: {"step": 50000, "total": 50000, "points": [...], "stats": {...}, "done": true}
 """
 
 import asyncio
+import os
 import threading
 from collections.abc import AsyncIterable
 from typing import Annotated
@@ -37,16 +26,24 @@ from .stats import TargetStats, compute_stats
 
 _TARGET = TargetStats()
 
+# ── Guardrails ──
+MAX_BATCH_SHAPES = 25          # 5×5 grid max
+MAX_CONCURRENT_STREAMS = 10    # total simultaneous SSE connections
+_active_streams = 0
+_streams_lock = threading.Lock()
+
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "").split(",") if os.environ.get("ALLOWED_ORIGINS") else ["*"]
+
 
 class GenerateParams(BaseModel):
     """Shared query parameters for all generation endpoints."""
 
     model_config = ConfigDict(frozen=True)
 
-    steps: int = Field(default=50_000, ge=1_000, le=1_000_000)
+    steps: int = Field(default=50_000, ge=1_000, le=500_000)
     seed: int | None = Field(default=None)
     snapshot_every: int = Field(default=1_000, ge=100, le=10_000)
-    n_points: int = Field(default=142, ge=50, le=1_000)
+    n_points: int = Field(default=142, ge=50, le=500)
     algorithm: Algorithm = Field(default="sa")
 
 app = FastAPI(
@@ -57,7 +54,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -76,6 +73,8 @@ def _check_batch_shapes(
     shape_list = [s.strip() for s in shapes.split(",") if s.strip()]
     if not shape_list:
         raise HTTPException(status_code=422, detail="No shapes provided.")
+    if len(shape_list) > MAX_BATCH_SHAPES:
+        raise HTTPException(status_code=422, detail=f"Too many shapes ({len(shape_list)}). Maximum is {MAX_BATCH_SHAPES}.")
     available = set(available_shapes())
     unknown = [s for s in shape_list if s not in available]
     if unknown:
@@ -84,6 +83,22 @@ def _check_batch_shapes(
             detail=f"Unknown shape(s): {', '.join(unknown)}. GET /shapes for the list.",
         )
     return shape_list
+
+
+def _acquire_stream() -> None:
+    """Increment active stream count or reject if at capacity."""
+    global _active_streams
+    with _streams_lock:
+        if _active_streams >= MAX_CONCURRENT_STREAMS:
+            raise HTTPException(status_code=503, detail="Server is busy. Try again in a moment.")
+        _active_streams += 1
+
+
+def _release_stream() -> None:
+    """Decrement active stream count."""
+    global _active_streams
+    with _streams_lock:
+        _active_streams = max(0, _active_streams - 1)
 
 
 @app.get("/shapes")
@@ -96,15 +111,9 @@ def list_shapes() -> list[str]:
 async def generate_batch_sse(
     params: Annotated[GenerateParams, Query()],
     shape_list: Annotated[list[str], Depends(_check_batch_shapes)],
+    _stream: Annotated[None, Depends(_acquire_stream)],
 ) -> AsyncIterable[ServerSentEvent]:
-    """Stream SA progress for multiple shapes simultaneously.
-
-    All shapes run in lockstep — each event carries the full current point cloud
-    for every requested shape at the same step number.
-
-    Producer threads check a cancellation event so they stop promptly when the
-    client disconnects or a new request supersedes this one.
-    """
+    """Stream SA progress for multiple shapes simultaneously."""
     loop = asyncio.get_running_loop()
     cancelled = threading.Event()
     queues: list[asyncio.Queue] = [asyncio.Queue(maxsize=2) for _ in shape_list]
@@ -156,39 +165,39 @@ async def generate_batch_sse(
                 event["done"] = True
             yield ServerSentEvent(data=event)
     finally:
-        # Signal all producer threads to stop immediately
         cancelled.set()
         await asyncio.gather(*producer_futures, return_exceptions=True)
+        _release_stream()
 
 
 @app.get("/generate/{shape}", response_class=EventSourceResponse, dependencies=[Depends(_check_shape)])
 async def generate_sse(
     shape: str,
     params: Annotated[GenerateParams, Query()],
+    _stream: Annotated[None, Depends(_acquire_stream)],
 ) -> AsyncIterable[ServerSentEvent]:
-    """Stream SA progress as Server-Sent Events.
-
-    Each event carries the full current point cloud so the frontend can
-    re-render the scatter plot in real time.
-    """
+    """Stream SA progress as Server-Sent Events."""
     segs = get_shape(shape)
     config = GeneratorConfig(max_steps=params.steps, seed=params.seed, n_points=params.n_points, show_progress=False, algorithm=params.algorithm)
     loop = asyncio.get_running_loop()
     stream = generate_stream(segs, _TARGET, config, snapshot_every=params.snapshot_every)
 
-    while True:
-        result = await loop.run_in_executor(None, next, stream, None)
-        if result is None:
-            break
-        step, x, y = result
-        is_final = step == params.steps
-        data: dict = {"step": step, "total": params.steps, "points": np.column_stack([x, y]).tolist()}
-        if is_final:
-            df = pd.DataFrame({"x": x, "y": y})
-            stats = compute_stats(df)
-            data["stats"] = {k: round(float(v), 6) for k, v in stats.items()}
-            data["done"] = True
-        yield ServerSentEvent(data=data)
+    try:
+        while True:
+            result = await loop.run_in_executor(None, next, stream, None)
+            if result is None:
+                break
+            step, x, y = result
+            is_final = step == params.steps
+            data: dict = {"step": step, "total": params.steps, "points": np.column_stack([x, y]).tolist()}
+            if is_final:
+                df = pd.DataFrame({"x": x, "y": y})
+                stats = compute_stats(df)
+                data["stats"] = {k: round(float(v), 6) for k, v in stats.items()}
+                data["done"] = True
+            yield ServerSentEvent(data=data)
+    finally:
+        _release_stream()
 
 
 @app.get("/generate/{shape}/final", dependencies=[Depends(_check_shape)])
