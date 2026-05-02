@@ -34,29 +34,72 @@ You can run up to 16 shapes simultaneously in a grid. Each cell morphs independe
 
 ---
 
-## The invariant
+## The problem
 
-Every dataset this tool produces shares the same five numbers, taken from the original Datasaurus dataset:
+Given a target shape $S$ defined as a set of line segments, find a dataset $\{(x_i, y_i)\}_{i=1}^{n}$ that:
 
-| | Mean | Std Dev |
-|:--|--:|--:|
-| **x** | 54.26 | 16.76 |
-| **y** | 47.83 | 26.93 |
-| **r** | −0.06 | |
+1. **Looks like $S$** — points lie close to the shape boundary
+2. **Preserves five statistics** — mean, standard deviation, and correlation match fixed targets
 
-Tolerance: ±0.01. Enforced on every step of every run. The enforcement is not a post-hoc check — it's a hard gate. Every proposed point move is speculatively applied to five running sums ($\Sigma x$, $\Sigma y$, $\Sigma x^2$, $\Sigma y^2$, $\Sigma xy$), and if any derived statistic drifts outside tolerance, the move is reverted before anything else happens. This runs in $O(1)$ per step via incremental updates, not $O(n)$ recomputation.
+Formally, we minimise the total distance from points to the shape:
+
+$$\min_{\{(x_i, y_i)\}} \sum_{i=1}^{n} d(p_i, S)$$
+
+where $d(p_i, S) = \min_{q \in S} \|p_i - q\|_2$ is the Euclidean distance from point $p_i$ to the nearest point on the shape boundary, computed via a KDTree built from the rasterised segments (sampled at 0.3-unit spacing).
+
+Subject to the hard constraints, enforced at every step:
+
+$$|\bar{x} - 54.26| \leq 0.01, \quad |\bar{y} - 47.83| \leq 0.01$$
+
+$$|s_x - 16.76| \leq 0.01, \quad |s_y - 26.93| \leq 0.01$$
+
+$$|r_{xy} - (-0.06)| \leq 0.01$$
+
+where $\bar{x}, \bar{y}$ are the sample means, $s_x, s_y$ are the sample standard deviations (with Bessel's correction), and $r_{xy}$ is the Pearson correlation coefficient. These target values come from the original Datasaurus dataset.
+
+### Constraint enforcement
+
+The constraints are not checked after the fact. They are enforced speculatively on every proposed move. The algorithm maintains five running sums:
+
+$$\Sigma x, \quad \Sigma y, \quad \Sigma x^2, \quad \Sigma y^2, \quad \Sigma xy$$
+
+When a point moves from $(x_i, y_i)$ to $(x_i', y_i')$, each sum is updated in $O(1)$:
+
+$$\Sigma x \leftarrow \Sigma x + x_i' - x_i$$
+
+The five statistics are derived from these sums. If any statistic leaves the tolerance band, the sums are reverted and the move is discarded before reaching the shape check. This is the hard gate — it is never relaxed, never probabilistic, never skipped.
+
+### The energy function
+
+The soft objective — what the algorithm tries to minimise — is the distance from each point to the nearest shape segment:
+
+$$E_i = d(p_i, S)$$
+
+A move that reduces $E_i$ is always accepted. A move that increases $E_i$ is accepted with probability:
+
+$$P(\text{accept}) = \begin{cases} 1 & \text{if } E_i' < E_i \\ 1 & \text{if } E_i' < d_{\text{allowed}} = 2.0 \\ e^{-(E_i' - E_i)/T} & \text{otherwise} \end{cases}$$
+
+The second case prevents points from getting stuck oscillating around the boundary — if a point is already within 2.0 units of the shape, it's accepted regardless of direction.
+
+### Temperature schedule
+
+Temperature controls the exploration-exploitation tradeoff. It follows an easeInOutQuad S-curve:
+
+$$T(t) = (T_0 - T_{\min}) \cdot \text{ease}\!\left(\frac{t_{\max} - t}{t_{\max}}\right) + T_{\min}$$
+
+where $T_0 = 0.4$, $T_{\min} = 0.0$, and $t_{\max} = 400{,}000$. The S-shape means the temperature drops slowly at the start (long exploration), accelerates through the middle, and slows near the end (fine-tuning).
 
 ---
 
-## The shared structure
+## The shared loop
 
-All three algorithms follow the same loop. Every step, for 400,000 steps:
+All three algorithms follow the same structure. Every step, for $t_{\max}$ steps:
 
-1. **Pick a point.** Choose one of the 142 points at random.
+1. **Pick a point.** Choose one of the $n$ points uniformly at random.
 2. **Propose a move.** How the move is proposed is where the algorithms differ.
-3. **Check the stats.** Speculatively update the five running sums. If any statistic leaves the ±0.01 tolerance band, revert immediately. No exceptions.
-4. **Check the shape.** Measure the point's distance to the nearest segment of the target shape (via a KDTree built from the rasterised shape boundary). If the point moved closer, accept. If it moved further away, accept with probability $e^{-\Delta d / T}$ where $T$ is the current temperature.
-5. **Cool.** Temperature follows an easeInOutQuad S-curve from $T_0 = 0.4 \to T_{\min} = 0.0$. Exploratory early, precise late.
+3. **Check the stats.** Speculatively update the running sums. If any statistic leaves the tolerance band, revert. No exceptions.
+4. **Check the shape.** Compute $E_i'$ and apply the acceptance rule above.
+5. **Cool.** Advance $T(t)$.
 
 Step 3 is the hard constraint. Step 4 is the soft objective. The algorithms differ only in step 2.
 
@@ -82,13 +125,9 @@ The perturbation is isotropic — it has no preferred direction. The point doesn
 
 ### The acceptance rule
 
-After the stat constraint passes (step 3), the move reaches the shape check (step 4). Let $d$ be the point's current distance to the nearest shape segment, and $d'$ the distance after the proposed move. Three cases:
+After the stat constraint passes (step 3), the move reaches the shape check (step 4). The acceptance rule defined above applies: closer moves are always accepted, moves within $d_{\text{allowed}}$ are always accepted, and moves further away are accepted with probability $e^{-(E_i' - E_i)/T}$.
 
-- $d' < d$ — the point moved closer. **Always accept.**
-- $d' < d_{\text{allowed}}$ (2.0 units) — the point is already near the shape. **Always accept**, even if it moved slightly further away. This prevents points from getting stuck oscillating around the boundary.
-- Otherwise — accept with probability $e^{-(d' - d)/T}$. When $T$ is high, this probability is close to 1 and bad moves slip through. When $T$ is near zero, only moves that reduce distance survive.
-
-The temperature $T$ follows an easeInOutQuad curve from 0.4 to 0.0 over the full run. The S-shape means the temperature drops slowly at the start (long exploration phase), accelerates through the middle, and slows again near the end (fine-tuning phase).
+The key property of annealing is that the proposal (step 2) is completely independent of the acceptance (step 4). The proposal doesn't try to be good. The acceptance filters out the bad ones. This separation is what makes the algorithm simple — and what makes it slow.
 
 ### Why it works
 
