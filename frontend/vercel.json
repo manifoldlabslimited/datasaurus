@@ -3,6 +3,7 @@
   "buildCommand": "bun run build",
   "installCommand": "bun install",
   "outputDirectory": ".next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./",
   "headers": [
     {
       "source": "/(.*)",

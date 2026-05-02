@@ -1,5 +1,6 @@
 [build]
 dockerfilePath = "Dockerfile"
+watchPatterns = ["src/**", "pyproject.toml", "uv.lock", "Dockerfile"]
 
 [deploy]
 # Health check — Railway hits this after deploy to confirm the service is up
