@@ -44,7 +44,7 @@ Every dataset this tool produces shares the same five numbers, taken from the or
 | **y** | 47.83 | 26.93 |
 | **r** | −0.06 | |
 
-Tolerance: ±0.01. Enforced on every step of every run. The enforcement is not a post-hoc check — it's a hard gate. Every proposed point move is speculatively applied to five running sums (Σx, Σy, Σx², Σy², Σxy), and if any derived statistic drifts outside tolerance, the move is reverted before anything else happens. This runs in O(1) per step via incremental updates, not O(n) recomputation.
+Tolerance: ±0.01. Enforced on every step of every run. The enforcement is not a post-hoc check — it's a hard gate. Every proposed point move is speculatively applied to five running sums ($\Sigma x$, $\Sigma y$, $\Sigma x^2$, $\Sigma y^2$, $\Sigma xy$), and if any derived statistic drifts outside tolerance, the move is reverted before anything else happens. This runs in $O(1)$ per step via incremental updates, not $O(n)$ recomputation.
 
 ---
 
@@ -55,8 +55,8 @@ All three algorithms follow the same loop. Every step, for 400,000 steps:
 1. **Pick a point.** Choose one of the 142 points at random.
 2. **Propose a move.** How the move is proposed is where the algorithms differ.
 3. **Check the stats.** Speculatively update the five running sums. If any statistic leaves the ±0.01 tolerance band, revert immediately. No exceptions.
-4. **Check the shape.** Measure the point's distance to the nearest segment of the target shape (via a KDTree built from the rasterised shape boundary). If the point moved closer, accept. If it moved further away, accept with probability exp(−Δd/T) where T is the current temperature.
-5. **Cool.** Temperature follows an easeInOutQuad S-curve from 0.4 → 0.0. Exploratory early, precise late.
+4. **Check the shape.** Measure the point's distance to the nearest segment of the target shape (via a KDTree built from the rasterised shape boundary). If the point moved closer, accept. If it moved further away, accept with probability $e^{-\Delta d / T}$ where $T$ is the current temperature.
+5. **Cool.** Temperature follows an easeInOutQuad S-curve from $T_0 = 0.4 \to T_{\min} = 0.0$. Exploratory early, precise late.
 
 Step 3 is the hard constraint. Step 4 is the soft objective. The algorithms differ only in step 2.
 
@@ -68,7 +68,7 @@ Step 3 is the hard constraint. Step 4 is the soft objective. The algorithms diff
 
 ### How it proposes moves
 
-Pick a random point. Add Gaussian noise (σ = 0.5) to both coordinates. That's it. The point doesn't know where the shape is. It doesn't know which direction is better. It just wanders.
+Pick a random point. Add Gaussian noise ($\sigma = 0.5$) to both coordinates. That's it. The point doesn't know where the shape is. It doesn't know which direction is better. It just wanders.
 
 ### Why it works
 
@@ -90,11 +90,11 @@ This is the method from Matejka & Fitzmaurice (2017). It works. It's just not ef
 
 Pick a random point. Look up the nearest point on the target shape boundary (KDTree query). Compute the unit vector from the current position toward that nearest boundary point. The proposed move is:
 
-```
-new_position = current + scale × (1 − T) × direction + scale × T × noise
-```
+$$\mathbf{x}' = \mathbf{x} + \underbrace{\alpha(1 - T)\hat{\mathbf{u}}}_{\text{drift toward shape}} + \underbrace{\alpha T \boldsymbol{\eta}}_{\text{thermal noise}}$$
 
-Two terms. The first is a **drift** toward the shape, scaled by `(1 − T)` — weak when the temperature is high, strong when it's low. The second is **random noise**, scaled by `T` — strong when the temperature is high, weak when it's low.
+where $\alpha = 0.5$ is the perturbation scale, $T$ is the current temperature, $\hat{\mathbf{u}}$ is the unit direction toward the nearest boundary point, and $\boldsymbol{\eta} \sim \mathcal{N}(0, 1)$.
+
+Two terms. The first is a **drift** toward the shape, scaled by $(1 - T)$ — weak when the temperature is high, strong when it's low. The second is **random noise**, scaled by $T$ — strong when the temperature is high, weak when it's low.
 
 ### Why it's faster
 
@@ -114,12 +114,16 @@ The direction is always toward the *nearest* boundary point, not the globally op
 
 ### How it proposes moves
 
-Each point carries a persistent velocity vector (vx, vy) that accumulates between steps. Every step:
+Each point carries a persistent velocity vector $(\mathbf{v}_x, \mathbf{v}_y)$ that accumulates between steps. Every step:
 
-1. Look up the nearest boundary point and compute the direction (same as Langevin).
-2. Update velocity: `v = β × v + scale × direction + noise`. The friction coefficient β = 0.85 means velocity decays by 15% each step. Noise is scaled by temperature.
-3. Clamp velocity to ±1.5 (3 × scale) to prevent runaway.
-4. Propose: `new_position = current + v`.
+1. Look up the nearest boundary point and compute the direction $\hat{\mathbf{u}}$ (same as Langevin).
+2. Update velocity:
+
+$$\mathbf{v} \leftarrow \text{clamp}\Big(\beta \mathbf{v} + \alpha \hat{\mathbf{u}} + \sigma \boldsymbol{\eta},\; \pm v_{\max}\Big)$$
+
+where $\beta = 0.85$ is the friction coefficient (velocity decays 15% each step), $\alpha = 0.5$ is the perturbation scale, $\sigma = \alpha \cdot \max(0.05, T)$ scales noise by temperature, and $v_{\max} = 1.5$.
+
+3. Propose: $\mathbf{x}' = \mathbf{x} + \mathbf{v}$.
 
 ### Why it looks different
 
@@ -131,7 +135,7 @@ Velocity accumulates. A point that's been moving toward the boundary for several
 
 ### When it struggles
 
-If a proposed move is rejected by the stat constraint (step 3), the velocity is zeroed — the point loses all its accumulated speed and starts over. If a move passes the stat check but is rejected by the shape check (step 4), the velocity is reversed and damped: `v *= −0.3`. This simulates a bounce. On shapes with many tight curves, the constant bouncing and velocity resets slow convergence compared to Langevin's smoother drift.
+If a proposed move is rejected by the stat constraint (step 3), the velocity is zeroed — the point loses all its accumulated speed and starts over. If a move passes the stat check but is rejected by the shape check (step 4), the velocity is reversed and damped: $\mathbf{v} \leftarrow -0.3\mathbf{v}$. This simulates a bounce. On shapes with many tight curves, the constant bouncing and velocity resets slow convergence compared to Langevin's smoother drift.
 
 ---
 
