@@ -66,19 +66,39 @@ Step 3 is the hard constraint. Step 4 is the soft objective. The algorithms diff
 
 *The original. From the paper.*
 
+### Inspiration
+
+Simulated annealing borrows its name from metallurgy. When you heat metal and let it cool slowly, the atoms settle into a low-energy crystalline structure. Cool it too fast and you get a brittle, disordered mess. The insight, formalised by Kirkpatrick, Gelatt, and Vecchi in 1983, is that you can apply the same idea to optimisation: let a system explore freely at high temperature, then gradually tighten the acceptance criteria as the temperature drops. The system finds good solutions not by being clever about where to look, but by being patient about how long to look.
+
+Matejka and Fitzmaurice used this to morph datasets. Their 2017 paper is the direct ancestor of this implementation.
+
 ### How it proposes moves
 
-Pick a random point. Add Gaussian noise ($\sigma = 0.5$) to both coordinates. That's it. The point doesn't know where the shape is. It doesn't know which direction is better. It just wanders.
+Pick one of the $n$ points at random. Add independent Gaussian noise to both coordinates:
+
+$$\mathbf{x}' = \mathbf{x} + \boldsymbol{\eta}, \quad \boldsymbol{\eta} \sim \mathcal{N}(0, \sigma^2 I), \quad \sigma = 0.5$$
+
+The perturbation is isotropic — it has no preferred direction. The point doesn't know where the shape is. It doesn't know which direction would reduce its distance to the boundary. It proposes a move and waits to be told whether it was a good idea.
+
+### The acceptance rule
+
+After the stat constraint passes (step 3), the move reaches the shape check (step 4). Let $d$ be the point's current distance to the nearest shape segment, and $d'$ the distance after the proposed move. Three cases:
+
+- $d' < d$ — the point moved closer. **Always accept.**
+- $d' < d_{\text{allowed}}$ (2.0 units) — the point is already near the shape. **Always accept**, even if it moved slightly further away. This prevents points from getting stuck oscillating around the boundary.
+- Otherwise — accept with probability $e^{-(d' - d)/T}$. When $T$ is high, this probability is close to 1 and bad moves slip through. When $T$ is near zero, only moves that reduce distance survive.
+
+The temperature $T$ follows an easeInOutQuad curve from 0.4 to 0.0 over the full run. The S-shape means the temperature drops slowly at the start (long exploration phase), accelerates through the middle, and slows again near the end (fine-tuning phase).
 
 ### Why it works
 
-The acceptance rule in step 4 does all the work. Early in the run, the temperature is high and almost any move is accepted — points explore freely. Late in the run, the temperature is near zero and only moves that reduce distance to the shape survive. Over hundreds of thousands of steps, the random walk is filtered into a directed flow toward the shape boundary.
+No single step is smart. The proposal is random. The acceptance is probabilistic. But over 400,000 steps, the temperature schedule turns a random walk into a directed search. Points that happen to land near the shape boundary stay there (low $T$ rejects moves away). Points that are far from the boundary keep wandering until they stumble close enough to stick.
 
 ### Why it's slow
 
-Most proposals are wasted. A random perturbation has no reason to point toward the shape. Late in the run, when the temperature is low and the acceptance threshold is tight, the vast majority of proposals are rejected. The algorithm spends most of its time proposing moves that go nowhere.
+The proposal has no bias toward the shape. In two dimensions, a random perturbation has a roughly equal chance of going in any direction. Only a small fraction of those directions reduce the distance to a specific boundary curve. Late in the run, when $T$ is low and the acceptance threshold is tight, the vast majority of proposals are rejected. The algorithm spends most of its time proposing moves that go nowhere.
 
-This is the method from Matejka & Fitzmaurice (2017). It works. It's just not efficient.
+This is the method from Matejka & Fitzmaurice (2017). It produces correct results. It's just not efficient about getting there.
 
 ---
 
