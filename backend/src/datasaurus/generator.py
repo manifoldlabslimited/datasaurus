@@ -19,11 +19,10 @@ tolerance) and temperature schedule, but differ in how they propose moves:
 """
 
 import math
-from typing import Literal
+from typing import Generator, Literal
 
 import numpy as np
 import pandas as pd
-import pytweening
 from pydantic import BaseModel, ConfigDict, Field
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 from scipy.spatial import KDTree
@@ -91,12 +90,6 @@ class GeneratorConfig(BaseModel):
     n_points: int = Field(default=142, gt=1)
     show_progress: bool = Field(default=True)
     algorithm: Literal["sa", "langevin", "momentum"] = Field(default="sa")
-
-
-def _temperature(step: int, max_steps: int, temp_start: float, temp_min: float) -> float:
-    """S-curve schedule using pytweening.easeInOutQuad — matches the original paper."""
-    progress = (max_steps - step) / max_steps  # 1.0 -> 0.0
-    return (temp_start - temp_min) * pytweening.easeInOutQuad(progress) + temp_min
 
 
 def _precompute_temps(config: "GeneratorConfig") -> np.ndarray:
@@ -227,6 +220,100 @@ def generate_batch_stream(
             break
 
         yield cells[0][1], [(name, x, y) for name, _, x, y in cells]
+
+
+def generate_loop_stream(
+    shape_segments: list[tuple[str, Segments]],
+    target: TargetStats | None = None,
+    steps_per_shape: int = 2_000,
+    snapshot_every: int = 20,
+    n_points: int = 142,
+    seed: int | None = None,
+) -> Generator[tuple[str, int, int, np.ndarray, np.ndarray], None, None]:
+    """Yield (shape_name, step, total, x, y) for one pass through all shapes.
+
+    Uses projected gradient descent (Rosen 1960): each step moves all points
+    toward the target shape boundary, then projects back onto the stats
+    constraint via closed-form affine correction.
+
+    The gradient step minimises Σ d(pᵢ, S)².  The projection restores all
+    five summary statistics exactly in O(n) via shift, scale, and shear.
+    Temperature annealing controls the learning rate and noise.
+    """
+    if target is None:
+        target = TargetStats()
+
+    rng = np.random.default_rng(seed)
+    x, y = _make_initial_dataset(target, n_points, rng)
+
+    config = GeneratorConfig(algorithm="momentum", max_steps=steps_per_shape, n_points=n_points)
+    temps = _precompute_temps(config)
+
+    scale = config.perturbation_scale
+    n     = n_points
+
+    for shape_name, segs in shape_segments:
+        tree = _build_kdtree(segs)
+
+        for step in range(1, steps_per_shape + 1):
+            temp = float(temps[step])
+
+            # Gradient step: move every point toward nearest boundary
+            pts = np.c_[x, y]
+            dists, near_idxs = tree.query(pts)
+            nears = tree.data[near_idxs]
+
+            lr = scale * (0.3 + 0.7 * temp / config.temp_start)
+            sigma = scale * temp * 0.5
+
+            safe = dists > 1e-6
+            inv_dist = np.where(safe, 1.0 / np.maximum(dists, 1e-12), 0.0)
+            dx = (nears[:, 0] - x) * inv_dist * lr
+            dy = (nears[:, 1] - y) * inv_dist * lr
+
+            if sigma > 1e-6:
+                dx += rng.normal(0.0, sigma, n)
+                dy += rng.normal(0.0, sigma, n)
+
+            x = x + dx
+            y = y + dy
+
+            # Project onto stats constraint
+            _project_stats(x, y, n, target)
+
+            if step % snapshot_every == 0 or step == steps_per_shape:
+                yield shape_name, step, steps_per_shape, x.copy(), y.copy()
+
+
+def _project_stats(x: np.ndarray, y: np.ndarray, n: int, target: TargetStats) -> None:
+    """In-place affine projection to restore all five summary statistics."""
+    # 1. Means
+    x += target.mean_x - float(x.mean())
+    y += target.mean_y - float(y.mean())
+
+    # 2. Standard deviations
+    xc = x - target.mean_x
+    yc = y - target.mean_y
+    sx = float(np.sqrt((xc * xc).sum() / (n - 1)))
+    sy = float(np.sqrt((yc * yc).sum() / (n - 1)))
+    if sx > 1e-12:
+        xc *= target.std_x / sx
+    if sy > 1e-12:
+        yc *= target.std_y / sy
+
+    # 3. Correlation (shear y, then re-fix std_y)
+    sxy = float((xc * yc).sum() / (n - 1))
+    sx2 = float((xc * xc).sum() / (n - 1))
+    if sx2 > 1e-12:
+        desired_cov = target.correlation * target.std_x * target.std_y
+        alpha = (desired_cov - sxy) / sx2
+        yc = yc + alpha * xc
+        sy2 = float(np.sqrt((yc * yc).sum() / (n - 1)))
+        if sy2 > 1e-12:
+            yc *= target.std_y / sy2
+
+    x[:] = xc + target.mean_x
+    y[:] = yc + target.mean_y
 
 
 def _sa_loop(x, y, tree: KDTree, target, config, rng, snapshot_every, temps):

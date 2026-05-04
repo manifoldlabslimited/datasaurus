@@ -7,7 +7,18 @@ import type { Point } from "@/lib/types";
 
 const X_MIN = 0, X_MAX = 110, Y_MIN = 0, Y_MAX = 100;
 const PAD = 14;
-const DOT_R = 2.4;
+
+/**
+ * Dot radius derived from canvas area and point count.
+ * Targets dots covering ~3% of the drawable area so shapes look solid
+ * regardless of screen size or point count.
+ */
+function dotRadius(n: number, w: number, h: number): number {
+  if (n <= 0 || w <= 0 || h <= 0) return 2;
+  const area = (w - PAD * 2) * (h - PAD * 2);
+  const coverage = 0.03; // target ~3% fill
+  return Math.max(0.8, Math.sqrt((area * coverage) / (n * Math.PI)));
+}
 
 interface CanvasState {
   n: number;
@@ -39,7 +50,7 @@ function drawFrame(
     const cx = PAD + ((x - X_MIN) / (X_MAX - X_MIN)) * (w - PAD * 2);
     const cy = h - PAD - ((y - Y_MIN) / (Y_MAX - Y_MIN)) * (h - PAD * 2);
     ctx.beginPath();
-    ctx.arc(cx, cy, DOT_R, 0, Math.PI * 2);
+    ctx.arc(cx, cy, dotRadius(s.n, w, h), 0, Math.PI * 2);
     ctx.fill();
   }
 }

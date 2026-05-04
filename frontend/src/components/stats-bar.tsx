@@ -1,52 +1,73 @@
 "use client";
 
-import { useShallow } from "zustand/shallow";
-import { useGridStore } from "@/store/grid";
-import type { CellStats } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
+import { ModeToggle } from "@/components/mode-toggle";
+import { InfoPanel } from "@/components/info-panel";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TARGET_STATS } from "@/lib/constants";
+import type { CellStats } from "@/lib/types";
 
-export function StatsBar() {
-  const run = useGridStore((s) => s.run);
-  const step = useGridStore((s) => s.step);
-  const total = useGridStore((s) => s.total);
-  const liveStats = useGridStore(useShallow((s) => {
-    const withStats = s.cells.filter((c): c is typeof c & { stats: CellStats } => c.stats !== null);
-    if (withStats.length === 0) return null;
-    const n = withStats.length;
-    return {
-      mean_x: withStats.reduce((sum, c) => sum + c.stats.mean_x, 0) / n,
-      mean_y: withStats.reduce((sum, c) => sum + c.stats.mean_y, 0) / n,
-      std_x: withStats.reduce((sum, c) => sum + c.stats.std_x, 0) / n,
-      std_y: withStats.reduce((sum, c) => sum + c.stats.std_y, 0) / n,
-      correlation: withStats.reduce((sum, c) => sum + c.stats.correlation, 0) / n,
-    };
-  }));
+interface Props {
+  stats?: CellStats | null;
+}
+
+/**
+ * Shared top bar: brand + mode toggle + stats + theme/info.
+ * Stats are the invariant — always visible, always prominent.
+ */
+export function StatsBar({ stats: liveStats }: Props) {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const stats = liveStats ?? TARGET_STATS;
   const dimmed = !liveStats;
-  const running = run === "running";
 
   return (
-    <div className="flex h-9 items-center justify-between border-b border-border bg-card px-4 text-[11px]">
-      <span className="text-primary font-semibold tracking-wider uppercase text-[10px]">
-        Datasaurus
-      </span>
-
-      <div className={cn("flex items-center gap-6", dimmed ? "opacity-30" : "text-muted-foreground")}>
-        <StatItem label="x̄" value={stats.mean_x.toFixed(2)} />
-        <StatItem label="ȳ" value={stats.mean_y.toFixed(2)} />
-        <StatItem label="σx" value={stats.std_x.toFixed(2)} />
-        <StatItem label="σy" value={stats.std_y.toFixed(2)} />
-        <StatItem label="r" value={stats.correlation.toFixed(2)} />
+    <div className="relative flex h-10 items-center border-b border-border/40 bg-card/80 px-4 text-[11px] backdrop-blur-sm">
+      {/* Left: brand + stats */}
+      <div className="flex items-center gap-4">
+        <span className="text-primary font-semibold tracking-wider uppercase text-[10px]">
+          Datasaurus
+        </span>
+        <div className={cn(
+          "flex items-center gap-4",
+          dimmed ? "opacity-30" : "text-muted-foreground",
+        )}>
+          <StatItem label="x̄" value={stats.mean_x.toFixed(2)} />
+          <StatItem label="ȳ" value={stats.mean_y.toFixed(2)} />
+          <StatItem label="σx" value={stats.std_x.toFixed(2)} />
+          <StatItem label="σy" value={stats.std_y.toFixed(2)} />
+          <StatItem label="r" value={stats.correlation.toFixed(2)} />
+        </div>
       </div>
 
-      <div className="text-[10px] text-muted-foreground tabular-nums min-w-16 text-right">
-        {running
-          ? `${step.toLocaleString()} / ${total.toLocaleString()}`
-          : step > 0
-            ? `${step.toLocaleString()} steps`
-            : "ready"}
+      {/* Center: mode toggle — absolutely centered */}
+      <div className="absolute left-1/2 -translate-x-1/2">
+        <ModeToggle />
+      </div>
+
+      {/* Right: theme + info */}
+      <div className="flex items-center gap-1 ml-auto">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="Toggle theme"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {mounted && (theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />)}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Switch theme</TooltipContent>
+        </Tooltip>
+        <InfoPanel />
       </div>
     </div>
   );

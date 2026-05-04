@@ -2,6 +2,7 @@
 
 Endpoints:
   GET /shapes                         — list all built-in shape names
+  GET /generate/loop                  — SSE stream cycling through shapes indefinitely
   GET /generate/batch                 — SSE stream for multiple shapes in lockstep
   GET /generate/{shape}               — SSE stream of SA progress snapshots
   GET /generate/{shape}/final         — blocking, returns final dataset as JSON
@@ -19,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, ConfigDict, Field
 
-from .generator import Algorithm, GeneratorConfig, generate_stream, generate_batch_stream
+from .generator import Algorithm, GeneratorConfig, generate_stream, generate_batch_stream, generate_loop_stream
 from .shapes import available_shapes, get_shape
 from .stats import TargetStats, compute_stats
 
@@ -80,6 +81,46 @@ def _check_batch_shapes(
 def list_shapes() -> list[str]:
     """Return all available built-in shape names."""
     return available_shapes()
+
+
+@app.get("/generate/loop", response_class=EventSourceResponse)
+async def generate_loop_sse(
+    shape_list: Annotated[list[str], Depends(_check_batch_shapes)],
+    steps_per_shape: int = Query(default=2_000, ge=100, le=100_000),
+    snapshot_every: int = Query(default=20, ge=1, le=10_000),
+) -> AsyncIterable[ServerSentEvent]:
+    """Stream continuous shape morphing over SSE, cycling through shapes indefinitely.
+
+    Uses projected gradient descent. Point count is fixed at 3000 for crisp shapes.
+    The point cloud carries forward between shapes without reinitialising.
+    """
+    loop = asyncio.get_running_loop()
+    shape_segments = [(name, get_shape(name)) for name in shape_list]
+    stream = generate_loop_stream(
+        shape_segments,
+        _TARGET,
+        steps_per_shape=steps_per_shape,
+        snapshot_every=snapshot_every,
+        n_points=10_000,
+    )
+
+    while True:
+        result = await loop.run_in_executor(None, next, stream, None)
+        if result is None:
+            break
+
+        shape_name, step, total, x, y = result
+        df = pd.DataFrame({"x": x, "y": y})
+        stats = compute_stats(df)
+
+        event: dict = {
+            "shape": shape_name,
+            "step": step,
+            "total": total,
+            "points": np.column_stack([x, y]).tolist(),
+            "stats": {k: round(float(v), 6) for k, v in stats.items()},
+        }
+        yield ServerSentEvent(data=event)
 
 
 @app.get("/generate/batch", response_class=EventSourceResponse)

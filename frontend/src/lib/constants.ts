@@ -8,3 +8,11 @@ export const TARGET_STATS: CellStats = {
   std_y: 26.93,
   correlation: -0.06,
 };
+
+/** Shapes used in the continuous morph mode — curated for visual impact. */
+export const LOOP_SHAPES = [
+  "dino", "heart", "star", "circle", "bullseye", "spiral",
+  "cross", "infinity", "figure_eight", "smiley", "pac_man",
+  "fish", "crown", "lightning", "house", "parabola",
+  "hourglass", "bowtie", "eye", "arch",
+] as const;
