@@ -101,7 +101,18 @@ export function useLoopSSE() {
         resetConnectionTimeout();
 
         try {
-          const event: LoopEvent = JSON.parse(e.data);
+          const event = JSON.parse(e.data);
+
+          // Server sends {done: true} when all shapes are complete
+          if (event.done) {
+            es.close();
+            esRef.current = null;
+            clearConnectionTimeout();
+            setRun("done");
+            return;
+          }
+
+          const loopEvent = event as LoopEvent;
 
           // Exponential smoothing for frame interval
           const now = performance.now();
@@ -114,11 +125,11 @@ export function useLoopSSE() {
           }
           lastFrameMsRef.current = now;
 
-          setPoints(event.points);
-          setStats(event.stats);
-          setShape(event.shape);
-          setStep(event.step);
-          setTotal(event.total);
+          setPoints(loopEvent.points);
+          setStats(loopEvent.stats);
+          setShape(loopEvent.shape);
+          setStep(loopEvent.step);
+          setTotal(loopEvent.total);
         } catch (err) {
           console.warn("[LoopSSE] malformed frame:", err);
         }
@@ -128,13 +139,8 @@ export function useLoopSSE() {
         es.close();
         esRef.current = null;
         clearConnectionTimeout();
-        // If we received frames, the server finished the cycle — not an error.
-        if (lastFrameMsRef.current > 0) {
-          setRun("done");
-        } else {
-          setRun("idle");
-          setError("Connection to backend lost. Is it running?");
-        }
+        setRun("idle");
+        setError("Connection to backend lost. Is it running?");
       };
     },
     [clearConnectionTimeout, resetConnectionTimeout],

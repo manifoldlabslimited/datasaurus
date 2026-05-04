@@ -44,13 +44,14 @@ function drawFrame(
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = dotColor;
+  const r = dotRadius(s.n, w, h);
   for (let i = 0; i < s.n; i++) {
     const x = s.fromX[i] + (s.toX[i] - s.fromX[i]) * t;
     const y = s.fromY[i] + (s.toY[i] - s.fromY[i]) * t;
     const cx = PAD + ((x - X_MIN) / (X_MAX - X_MIN)) * (w - PAD * 2);
     const cy = h - PAD - ((y - Y_MIN) / (Y_MAX - Y_MIN)) * (h - PAD * 2);
     ctx.beginPath();
-    ctx.arc(cx, cy, dotRadius(s.n, w, h), 0, Math.PI * 2);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
   }
 }

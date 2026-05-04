@@ -2,7 +2,7 @@
 
 Endpoints:
   GET /shapes                         — list all built-in shape names
-  GET /generate/loop                  — SSE stream cycling through shapes indefinitely
+  GET /generate/loop                  — SSE stream morphing through shapes (single pass)
   GET /generate/batch                 — SSE stream for multiple shapes in lockstep
   GET /generate/{shape}               — SSE stream of SA progress snapshots
   GET /generate/{shape}/final         — blocking, returns final dataset as JSON
@@ -89,10 +89,11 @@ async def generate_loop_sse(
     steps_per_shape: int = Query(default=2_000, ge=100, le=100_000),
     snapshot_every: int = Query(default=20, ge=1, le=10_000),
 ) -> AsyncIterable[ServerSentEvent]:
-    """Stream continuous shape morphing over SSE, cycling through shapes indefinitely.
+    """Stream shape morphing over SSE for one pass through all shapes.
 
-    Uses projected gradient descent. Point count is fixed at 3000 for crisp shapes.
+    Uses projected gradient descent. Point count is fixed at 10,000.
     The point cloud carries forward between shapes without reinitialising.
+    The stream ends after completing all shapes.
     """
     loop = asyncio.get_running_loop()
     shape_segments = [(name, get_shape(name)) for name in shape_list]
@@ -121,6 +122,9 @@ async def generate_loop_sse(
             "stats": {k: round(float(v), 6) for k, v in stats.items()},
         }
         yield ServerSentEvent(data=event)
+
+    # Signal clean completion
+    yield ServerSentEvent(data={"done": True})
 
 
 @app.get("/generate/batch", response_class=EventSourceResponse)

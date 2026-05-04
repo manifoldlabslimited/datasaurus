@@ -4,6 +4,8 @@ export function useKeyboardShortcuts(onStart: () => void, onStop: () => void, ru
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Don't trigger when focus is on interactive elements (buttons, links, etc.)
+      if (e.target instanceof HTMLElement && (e.target.closest("button") || e.target.closest("a"))) return;
       if (e.key === "Enter" && !running) {
         e.preventDefault();
         onStart();
